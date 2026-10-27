@@ -1,0 +1,30 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary uploads and pcaps (keep directory structure with .gitkeep)
+data/uploads/*
+!data/uploads/.gitkeep
+data/pcaps/*
+!data/pcaps/.gitkeep
+data/reports/*
+!data/reports/.gitkeep
+data/*.db
+data/*.db-journal
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
