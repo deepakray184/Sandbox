@@ -29,6 +29,7 @@ from app.engine.email_analyzer import EmailAnalyzer
 from app.engine.mitre_mapper import MitreMapper
 from app.engine.threat_scorer import ThreatScorer
 from app.engine.ioc_exporter import IocExporter
+from app.engine.ioc_intelligence import IocIntelligenceEngine
 from app.samples.loader import SAMPLES_CATALOG, get_sample_by_id
 
 # Initialize database
@@ -66,6 +67,7 @@ email_analyzer = EmailAnalyzer()
 mitre_mapper = MitreMapper()
 threat_scorer = ThreatScorer()
 ioc_exporter = IocExporter()
+ioc_intel = IocIntelligenceEngine()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -380,3 +382,55 @@ async def api_get_notes(sub_id: str):
     """Retrieves all analyst investigation notes for a case."""
     notes = get_analyst_notes(sub_id)
     return {"status": "success", "notes": notes}
+
+
+# ============================================================================
+# IOC & CVE INTELLIGENCE ENDPOINTS
+# ============================================================================
+
+@app.post("/api/ioc/analyze")
+async def api_analyze_ioc(ioc: str = Form(...)):
+    """Universal IOC analyzer: auto-detects CVE, IP, Domain, or Hash."""
+    ioc_type = ioc_intel.detect_ioc_type(ioc)
+    if ioc_type == "cve":
+        res = ioc_intel.analyze_cve(ioc)
+    elif ioc_type == "ip":
+        res = ioc_intel.analyze_ip(ioc)
+    elif ioc_type in ["sha256", "sha1", "md5"]:
+        res = ioc_intel.analyze_hash(ioc)
+    elif ioc_type == "domain":
+        res = ioc_intel.analyze_domain(ioc)
+    else:
+        res = ioc_intel.analyze_domain(ioc)
+    return {"status": "success", "ioc_type": ioc_type, "data": res}
+
+
+@app.get("/api/ioc/cve/{cve_id}")
+async def api_get_cve(cve_id: str):
+    """Retrieve detailed vulnerability analysis for a given CVE ID."""
+    return {"status": "success", "data": ioc_intel.analyze_cve(cve_id)}
+
+
+@app.get("/api/ioc/ip/{ip}")
+async def api_get_ip(ip: str):
+    """Retrieve IP address reputation, geolocation, and ASN info."""
+    return {"status": "success", "data": ioc_intel.analyze_ip(ip)}
+
+
+@app.get("/api/ioc/domain/{domain}")
+async def api_get_domain(domain: str):
+    """Retrieve domain WHOIS, DNS records, and DGA scoring."""
+    return {"status": "success", "data": ioc_intel.analyze_domain(domain)}
+
+
+@app.get("/api/ioc/hash/{hash_val}")
+async def api_get_hash(hash_val: str):
+    """Retrieve threat intelligence for a file hash."""
+    return {"status": "success", "data": ioc_intel.analyze_hash(hash_val)}
+
+
+@app.post("/api/ioc/extract")
+async def api_extract_iocs(text: str = Form(...)):
+    """Extract and defang all IOCs from unstructured text."""
+    return {"status": "success", "data": ioc_intel.extract_and_defang_all(text)}
+

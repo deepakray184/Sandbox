@@ -60,6 +60,10 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                     Email Analysis
                 </button>
+                <button data-nav-target="ioc-intel" class="px-3 py-2 text-xs font-semibold rounded-md border-b-2 border-transparent text-gray-400 hover:text-white transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    IOC & CVE Intel
+                </button>
                 <button data-nav-target="history" class="px-3 py-2 text-xs font-semibold rounded-md border-b-2 border-transparent text-gray-400 hover:text-white transition flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     History
@@ -103,6 +107,29 @@
                 <div class="soc-card p-3 flex flex-col border-l-2 border-l-purple-500">
                     <span class="text-[11px] text-purple-400 font-mono uppercase">Emails Inspected</span>
                     <span id="stat-emails" class="text-2xl font-bold font-mono text-purple-400 mt-1">0</span>
+                </div>
+            </div>
+
+            <!-- Universal IOC & CVE Quick Search Bar -->
+            <div class="soc-card p-4 bg-gradient-to-r from-blue-950/30 via-gray-900 to-purple-950/30 border border-blue-500/30">
+                <div class="flex flex-col sm:flex-row items-center gap-3">
+                    <div class="flex items-center gap-2 text-blue-400 font-mono text-xs font-bold whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        UNIVERSAL IOC SEARCH:
+                    </div>
+                    <div class="flex-1 w-full flex items-center gap-2">
+                        <input type="text" id="universal-ioc-input" placeholder="Query any CVE (e.g. CVE-2021-44228), IP (e.g. 185.220.101.5), Domain, or Hash..." class="w-full bg-gray-950/80 border border-gray-700 rounded px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-blue-500">
+                        <button onclick="runUniversalIocLookup()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition whitespace-nowrap">Search Intel</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 mt-2.5 pt-2.5 border-t border-gray-800/80 text-[11px] font-mono">
+                    <span class="text-gray-400">Quick Test IOCs:</span>
+                    <button onclick="quickIocLookup('CVE-2021-44228')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">Log4Shell (CVE-2021-44228)</button>
+                    <button onclick="quickIocLookup('CVE-2024-3400')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">PAN-OS RCE (CVE-2024-3400)</button>
+                    <button onclick="quickIocLookup('CVE-2017-0144')" class="bg-purple-950/40 text-purple-400 hover:bg-purple-900/60 border border-purple-800/60 px-2 py-0.5 rounded">EternalBlue (CVE-2017-0144)</button>
+                    <button onclick="quickIocLookup('185.220.101.5')" class="bg-amber-950/40 text-amber-400 hover:bg-amber-900/60 border border-amber-800/60 px-2 py-0.5 rounded">Tor C2 (185.220.101.5)</button>
+                    <button onclick="quickIocLookup('update-service-cloud.org')" class="bg-blue-950/40 text-blue-400 hover:bg-blue-900/60 border border-blue-800/60 px-2 py-0.5 rounded">C2 Domain (update-service-cloud.org)</button>
+                    <button onclick="quickIocLookup('5e8e45b2e1c147719623e696016e78ba846b76a6d63fa289417cb3f2a89326ef')" class="bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/60 border border-emerald-800/60 px-2 py-0.5 rounded">WannaCry SHA256</button>
                 </div>
             </div>
 
@@ -629,6 +656,286 @@
                 <h3 class="text-sm font-bold uppercase tracking-wider text-white mb-2">Safe Sanitized Email Body Preview</h3>
                 <span class="text-[11px] text-gray-400 block mb-3">External tracking beacons and JavaScript scripts are automatically stripped</span>
                 <div id="email-body-preview" class="p-4 bg-gray-950 rounded border border-gray-800 text-xs text-gray-300 max-h-96 overflow-y-auto"></div>
+            </div>
+
+        </div>
+
+        <!-- ==================== IOC & CVE INTELLIGENCE PANEL ==================== -->
+        <div id="panel-ioc-intel" class="main-view-panel hidden space-y-5">
+
+            <!-- Universal Search Card -->
+            <div class="soc-card p-5 bg-gradient-to-r from-blue-950/40 via-gray-900 to-purple-950/40 border border-blue-500/30">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-white">IOC, Threat Actor & CVE Vulnerability Intelligence</h3>
+                    </div>
+                    <span class="text-xs text-gray-400 font-mono">Multi-Source Threat Correlation</span>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="ioc-panel-search-input" placeholder="Query any CVE (CVE-2021-44228), IP (185.220.101.5), Domain (update-service-cloud.org), or Hash..." class="flex-1 bg-gray-950/80 border border-gray-700 rounded px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-blue-500">
+                    <button onclick="runUniversalIocLookup(document.getElementById('ioc-panel-search-input').value)" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition">Lookup Intel</button>
+                </div>
+                <!-- Sample Quick Chips -->
+                <div class="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-800 text-[11px] font-mono">
+                    <span class="text-gray-400">Sample Queries:</span>
+                    <button onclick="quickIocLookup('CVE-2021-44228')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">Log4Shell (CVE-2021-44228)</button>
+                    <button onclick="quickIocLookup('CVE-2024-3400')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">PAN-OS RCE (CVE-2024-3400)</button>
+                    <button onclick="quickIocLookup('CVE-2017-0144')" class="bg-purple-950/40 text-purple-400 hover:bg-purple-900/60 border border-purple-800/60 px-2 py-0.5 rounded">EternalBlue (CVE-2017-0144)</button>
+                    <button onclick="quickIocLookup('185.220.101.5')" class="bg-amber-950/40 text-amber-400 hover:bg-amber-900/60 border border-amber-800/60 px-2 py-0.5 rounded">Tor C2 (185.220.101.5)</button>
+                    <button onclick="quickIocLookup('update-service-cloud.org')" class="bg-blue-950/40 text-blue-400 hover:bg-blue-900/60 border border-blue-800/60 px-2 py-0.5 rounded">C2 Domain (update-service-cloud.org)</button>
+                    <button onclick="quickIocLookup('5e8e45b2e1c147719623e696016e78ba846b76a6d63fa289417cb3f2a89326ef')" class="bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/60 border border-emerald-800/60 px-2 py-0.5 rounded">WannaCry SHA256</button>
+                </div>
+            </div>
+
+            <!-- IOC Sub-Tabs Navigation -->
+            <div class="flex items-center gap-2 border-b border-gray-800">
+                <button data-ioc-tab="cve" onclick="switchIocSubTab('cve')" class="px-4 py-2 text-xs font-semibold border-b-2 border-blue-500 text-blue-400 bg-blue-900/20 rounded-t transition">CVE Vulnerability</button>
+                <button data-ioc-tab="ip" onclick="switchIocSubTab('ip')" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-white rounded-t transition">IP Address & Geo</button>
+                <button data-ioc-tab="domain" onclick="switchIocSubTab('domain')" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-white rounded-t transition">Domain & DNS</button>
+                <button data-ioc-tab="hash" onclick="switchIocSubTab('hash')" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-white rounded-t transition">Hash Reputation</button>
+                <button data-ioc-tab="bulk" onclick="switchIocSubTab('bulk')" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-white rounded-t transition">Bulk Extractor & Defanger</button>
+            </div>
+
+            <!-- Results Display Container -->
+            <div id="ioc-results-container">
+
+                <!-- SUB-VIEW: CVE VULNERABILITY -->
+                <div id="ioc-sub-cve" class="ioc-sub-view space-y-4">
+                    <div class="soc-card p-5">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4 pb-4 border-b border-gray-800">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span id="cve-id-badge" class="px-2.5 py-0.5 rounded bg-red-900/50 text-red-400 border border-red-700 text-xs font-mono font-bold">CVE-2021-44228</span>
+                                    <span id="cve-severity-badge" class="px-2.5 py-0.5 rounded bg-red-900/30 text-red-400 text-xs font-bold uppercase tracking-wider">CRITICAL</span>
+                                    <span id="cve-kev-badge" class="px-2.5 py-0.5 rounded bg-red-900/40 text-red-400 border border-red-700 text-xs font-bold">ACTIVE EXPLOITATION (CISA KEV)</span>
+                                </div>
+                                <h3 id="cve-title" class="text-base font-bold text-white mt-1">Apache Log4j2 JNDI Remote Code Execution (Log4Shell)</h3>
+                                <div class="flex items-center gap-4 text-xs font-mono text-gray-400 mt-1">
+                                    <span>Vendor: <strong id="cve-vendor" class="text-white">Apache</strong></span>
+                                    <span>Product: <strong id="cve-product" class="text-white">Log4j</strong></span>
+                                </div>
+                            </div>
+                            <!-- CVSS & EPSS Scores -->
+                            <div class="flex items-center gap-6 text-right">
+                                <div>
+                                    <span class="text-[10px] text-gray-400 block font-mono uppercase">CVSS v3.1 BASE</span>
+                                    <span id="cve-cvss-score" class="text-3xl font-extrabold font-mono text-red-400">10.0</span>
+                                    <span id="cve-cvss-vector" class="text-[10px] text-gray-500 font-mono block">CVSS:3.1/AV:N...</span>
+                                </div>
+                                <div class="w-36 text-left">
+                                    <span class="text-[10px] text-gray-400 block font-mono uppercase">EPSS PROBABILITY</span>
+                                    <span id="cve-epss-score" class="text-sm font-bold font-mono text-red-400 block">97.5% (99.8th)</span>
+                                    <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden mt-1">
+                                        <div id="cve-epss-bar" class="bg-red-500 h-full rounded-full" style="width: 97%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description & Impact -->
+                        <div class="space-y-4 text-xs">
+                            <div>
+                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1">Vulnerability Description</h4>
+                                <p id="cve-desc" class="text-gray-300 leading-relaxed bg-gray-950 p-3 rounded border border-gray-800"></p>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-gray-900/50 p-3 rounded border border-gray-800">
+                                    <h4 class="font-bold text-yellow-400 uppercase tracking-wider mb-1">Affected Versions</h4>
+                                    <p id="cve-affected" class="text-gray-300 font-mono"></p>
+                                </div>
+                                <div class="bg-gray-900/50 p-3 rounded border border-gray-800">
+                                    <h4 class="font-bold text-emerald-400 uppercase tracking-wider mb-1">Remediation Guidance</h4>
+                                    <p id="cve-remediation" class="text-gray-300 font-mono"></p>
+                                </div>
+                            </div>
+
+                            <!-- MITRE ATT&CK Mapping -->
+                            <div>
+                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1.5">Associated MITRE ATT&CK Techniques</h4>
+                                <div id="cve-mitre-tactics" class="flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <!-- Network Detection Signatures -->
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <h4 class="font-bold text-gray-300 uppercase tracking-wider">Suricata / Snort Network Detection Signature</h4>
+                                    <button onclick="copyToClipboard(document.getElementById('cve-snort-rule').innerText)" class="text-blue-400 hover:text-white font-mono text-[11px]">Copy Rule</button>
+                                </div>
+                                <pre id="cve-snort-rule" class="bg-gray-950 p-3 rounded border border-gray-800 font-mono text-[11px] text-yellow-300 overflow-x-auto whitespace-pre-wrap"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-VIEW: IP ADDRESS & GEO -->
+                <div id="ioc-sub-ip" class="ioc-sub-view hidden space-y-4">
+                    <div class="soc-card p-5">
+                        <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+                            <div>
+                                <span class="text-[10px] text-gray-400 font-mono uppercase block">Target IP Address</span>
+                                <h3 id="ip-address" class="text-xl font-bold text-white font-mono">185.220.101.5</h3>
+                                <span id="ip-rdns" class="text-xs text-blue-400 font-mono block mt-0.5">tor-exit-node-05.zwiebelfreunde.de</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-gray-400 font-mono uppercase block">Abuse Confidence Score</span>
+                                <span id="ip-abuse-score" class="text-2xl font-bold font-mono text-red-400">98%</span>
+                                <div class="w-32 bg-gray-800 h-2 rounded-full overflow-hidden mt-1 ml-auto">
+                                    <div id="ip-abuse-bar" class="bg-red-500 h-full rounded-full" style="width: 98%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800 text-xs">
+                                <span class="text-gray-400 block mb-0.5">Country & Location</span>
+                                <strong id="ip-country" class="text-white font-mono text-sm">Germany (DE)</strong>
+                                <span id="ip-city" class="text-gray-400 block font-mono text-[11px] mt-0.5">Frankfurt am Main</span>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800 text-xs">
+                                <span class="text-gray-400 block mb-0.5">Autonomous System (ASN)</span>
+                                <strong id="ip-asn" class="text-white font-mono text-sm">AS208294</strong>
+                                <span class="text-gray-400 block text-[11px] mt-0.5">Zwiebelfreunde e.V.</span>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800 text-xs">
+                                <span class="text-gray-400 block mb-0.5">Threat Verdict</span>
+                                <strong id="ip-reputation" class="text-red-400 font-bold text-sm uppercase">Malicious</strong>
+                                <span class="text-gray-400 block text-[11px] mt-0.5">Flagged across threat feeds</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1.5">Identified Threat Tags</h4>
+                                <div id="ip-tags" class="flex flex-wrap gap-2"></div>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1.5">Open Ports Detected</h4>
+                                <div id="ip-ports" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-VIEW: DOMAIN & DNS -->
+                <div id="ioc-sub-domain" class="ioc-sub-view hidden space-y-4">
+                    <div class="soc-card p-5">
+                        <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+                            <div>
+                                <span class="text-[10px] text-gray-400 font-mono uppercase block">Domain Name</span>
+                                <h3 id="dom-name" class="text-xl font-bold text-white font-mono">update-service-cloud.org</h3>
+                                <span id="dom-category" class="text-xs text-amber-400 font-mono block mt-0.5">Cobalt Strike Team Server C2 Domain</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-gray-400 font-mono uppercase block">DGA Entropy Score</span>
+                                <span id="dom-dga-score" class="text-2xl font-bold font-mono text-yellow-400">28 / 100</span>
+                                <div class="w-32 bg-gray-800 h-2 rounded-full overflow-hidden mt-1 ml-auto">
+                                    <div id="dom-dga-bar" class="bg-yellow-500 h-full rounded-full" style="width: 28%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800 text-xs">
+                                <span class="text-gray-400 block mb-0.5">Registrar</span>
+                                <strong id="dom-registrar" class="text-white font-mono">NameCheap, Inc.</strong>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800 text-xs">
+                                <span class="text-gray-400 block mb-0.5">Creation Date & Age</span>
+                                <strong id="dom-created" class="text-white font-mono">2026-08-14</strong>
+                                <span id="dom-age" class="text-gray-400 block text-[11px] font-mono mt-0.5">74 days old</span>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800 text-xs">
+                                <span class="text-gray-400 block mb-0.5">Verdict</span>
+                                <strong id="dom-reputation" class="text-red-400 font-bold text-sm uppercase">Malicious</strong>
+                            </div>
+                        </div>
+
+                        <div class="text-xs space-y-2">
+                            <h4 class="font-bold text-gray-300 uppercase tracking-wider">DNS Record Breakdown</h4>
+                            <div id="dom-dns-records" class="bg-gray-950 p-3 rounded border border-gray-800 font-mono space-y-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-VIEW: HASH REPUTATION -->
+                <div id="ioc-sub-hash" class="ioc-sub-view hidden space-y-4">
+                    <div class="soc-card p-5">
+                        <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+                            <div>
+                                <span class="text-[10px] text-gray-400 font-mono uppercase block">Malware Family Association</span>
+                                <h3 id="hash-family" class="text-xl font-bold text-red-400 font-mono">Ransomware.WannaCry</h3>
+                                <span id="hash-threat-name" class="text-xs text-gray-300 font-mono block mt-0.5">Ransom:Win32/WannaCrypt</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-gray-400 font-mono uppercase block">AV Multi-Engine Ratio</span>
+                                <span id="hash-detection-ratio" class="text-3xl font-extrabold font-mono text-red-400">64/68</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 text-xs font-mono mb-4">
+                            <div class="bg-gray-950 p-2.5 rounded border border-gray-800 flex justify-between items-center">
+                                <div><span class="text-gray-400">SHA-256:</span> <span id="hash-sha256-val" class="text-white break-all">...</span></div>
+                                <button onclick="copyToClipboard(document.getElementById('hash-sha256-val').innerText)" class="text-blue-400 ml-2">Copy</button>
+                            </div>
+                            <div class="bg-gray-950 p-2.5 rounded border border-gray-800 flex justify-between items-center">
+                                <div><span class="text-gray-400">MD5:</span> <span id="hash-md5-val" class="text-white">...</span></div>
+                                <button onclick="copyToClipboard(document.getElementById('hash-md5-val').innerText)" class="text-blue-400 ml-2">Copy</button>
+                            </div>
+                            <div class="bg-gray-950 p-2.5 rounded border border-gray-800 flex justify-between items-center">
+                                <div><span class="text-gray-400">SHA-1:</span> <span id="hash-sha1-val" class="text-white">...</span></div>
+                                <button onclick="copyToClipboard(document.getElementById('hash-sha1-val').innerText)" class="text-blue-400 ml-2">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800">
+                                <span class="text-gray-400 block mb-0.5">File Format</span>
+                                <span id="hash-filetype" class="text-white font-bold">Win32 EXE</span>
+                            </div>
+                            <div class="bg-gray-900/60 p-3 rounded border border-gray-800">
+                                <span class="text-gray-400 block mb-0.5">First Seen In The Wild</span>
+                                <span id="hash-firstseen" class="text-white font-bold">2017-05-12</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-VIEW: BULK EXTRACTOR & DEFANGER -->
+                <div id="ioc-sub-bulk" class="ioc-sub-view hidden space-y-4">
+                    <div class="soc-card p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-bold uppercase tracking-wider text-white">Unstructured Text IOC Extractor & Defanger</h3>
+                            <span class="text-xs text-gray-400 font-mono">Paste logs, threat reports, or incident notes</span>
+                        </div>
+                        <div class="space-y-3">
+                            <textarea id="bulk-ioc-input" rows="4" placeholder="Paste raw incident tickets, logs, or reports containing IPs, Domains, CVEs, or Hashes...&#10;Example: Observed C2 beacon from host 185.220.101.5 to update-service-cloud.org exploiting CVE-2021-44228..." class="w-full bg-gray-950 border border-gray-800 rounded p-3 text-xs font-mono text-gray-200 focus:outline-none focus:border-blue-500"></textarea>
+                            <button onclick="runBulkIocExtract()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition">Extract & Defang All IOCs</button>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-gray-800">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider">Extracted Indicators of Compromise (<span id="bulk-iocs-count">0</span>)</h4>
+                            </div>
+                            <div class="overflow-x-auto max-h-72 overflow-y-auto">
+                                <table class="w-full text-left font-mono">
+                                    <thead class="bg-gray-900 text-gray-400 text-xs sticky top-0">
+                                        <tr>
+                                            <th class="py-2 px-3">Type</th>
+                                            <th class="py-2 px-3">Original Value</th>
+                                            <th class="py-2 px-3">Defanged Value</th>
+                                            <th class="py-2 px-3 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bulk-iocs-tbody">
+                                        <tr><td colspan="4" class="text-center py-6 text-xs text-gray-500">Paste text above and click Extract to identify and defang IOCs.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </div>

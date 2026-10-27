@@ -1149,6 +1149,193 @@ function addAnalystNoteSubmit() {
     loadAnalystNotes(AppState.currentSubId);
 }
 
+// ----------------------------------------------------------------------------
+// IOC & CVE Intelligence Controller
+// ----------------------------------------------------------------------------
+
+function switchIocSubTab(tabName) {
+    document.querySelectorAll('.ioc-sub-view').forEach(p => p.classList.add('hidden'));
+    const target = document.getElementById(`ioc-sub-${tabName}`);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('[data-ioc-tab]').forEach(btn => {
+        if (btn.getAttribute('data-ioc-tab') === tabName) {
+            btn.classList.add('border-blue-500', 'text-blue-400', 'bg-blue-900/20');
+            btn.classList.remove('border-transparent', 'text-gray-400');
+        } else {
+            btn.classList.remove('border-blue-500', 'text-blue-400', 'bg-blue-900/20');
+            btn.classList.add('border-transparent', 'text-gray-400');
+        }
+    });
+}
+
+function quickIocLookup(val) {
+    const input = document.getElementById('universal-ioc-input');
+    if (input) input.value = val;
+    switchMainTab('ioc-intel');
+    runUniversalIocLookup(val);
+}
+
+async function runUniversalIocLookup(val) {
+    const input = val || document.getElementById('universal-ioc-input')?.value?.trim();
+    if (!input) {
+        alert("Please enter a CVE, IP address, Domain, or File Hash.");
+        return;
+    }
+
+    const iocType = ClientEngine.detectIocType(input);
+    showLoadingModal("Querying IOC Intel...", `Analyzing ${iocType.toUpperCase()}: ${input}`);
+
+    setTimeout(() => {
+        let result;
+        if (iocType === 'cve') result = ClientEngine.analyzeCve(input);
+        else if (iocType === 'ip') result = ClientEngine.analyzeIp(input);
+        else if (iocType === 'sha256' || iocType === 'sha1' || iocType === 'md5') result = ClientEngine.analyzeHash(input);
+        else result = ClientEngine.analyzeDomain(input);
+
+        hideLoadingModal();
+        displayIocReport(iocType, result);
+    }, 400);
+}
+
+function displayIocReport(type, data) {
+    switchMainTab('ioc-intel');
+    const container = document.getElementById('ioc-results-container');
+    if (!container) return;
+
+    container.classList.remove('hidden');
+
+    if (type === 'cve') {
+        switchIocSubTab('cve');
+        renderCveView(data);
+    } else if (type === 'ip') {
+        switchIocSubTab('ip');
+        renderIpView(data);
+    } else if (type === 'sha256' || type === 'sha1' || type === 'md5') {
+        switchIocSubTab('hash');
+        renderHashView(data);
+    } else {
+        switchIocSubTab('domain');
+        renderDomainView(data);
+    }
+}
+
+function renderCveView(cve) {
+    document.getElementById('cve-title').innerText = cve.title || cve.cve_id;
+    document.getElementById('cve-id-badge').innerText = cve.cve_id;
+    document.getElementById('cve-vendor').innerText = cve.vendor;
+    document.getElementById('cve-product').innerText = cve.product;
+    document.getElementById('cve-cvss-score').innerText = cve.cvss_v3_score;
+    document.getElementById('cve-cvss-vector').innerText = cve.cvss_v3_vector;
+    document.getElementById('cve-severity-badge').innerText = cve.severity;
+    document.getElementById('cve-epss-score').innerText = `${Math.round(cve.epss_score * 1000) / 10}% (${cve.epss_percentile}th percentile)`;
+    document.getElementById('cve-epss-bar').style.width = `${Math.min(100, cve.epss_score * 100)}%`;
+
+    const kevBadge = document.getElementById('cve-kev-badge');
+    if (cve.cisa_kev) {
+        kevBadge.innerText = "ACTIVE EXPLOITATION (CISA KEV)";
+        kevBadge.className = "px-2.5 py-1 rounded bg-red-900/40 text-red-400 border border-red-700 text-xs font-bold";
+    } else {
+        kevBadge.innerText = "No Known In-The-Wild Exploitation";
+        kevBadge.className = "px-2.5 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700 text-xs font-mono";
+    }
+
+    document.getElementById('cve-desc').innerText = cve.description;
+    document.getElementById('cve-affected').innerText = cve.affected_versions;
+    document.getElementById('cve-remediation').innerText = cve.remediation;
+
+    const tacticsContainer = document.getElementById('cve-mitre-tactics');
+    if (tacticsContainer) {
+        tacticsContainer.innerHTML = (cve.mitre_techniques || []).map(t => `<span class="bg-gray-800 text-gray-300 px-2 py-0.5 rounded text-xs font-mono">${escapeHtml(t)}</span>`).join(' ');
+    }
+
+    document.getElementById('cve-snort-rule').innerText = cve.snort_rule || 'No signature defined.';
+}
+
+function renderIpView(ip) {
+    document.getElementById('ip-address').innerText = ip.ip;
+    document.getElementById('ip-country').innerText = `${ip.country} (${ip.country_code})`;
+    document.getElementById('ip-city').innerText = ip.city || 'Unknown';
+    document.getElementById('ip-asn').innerText = `${ip.asn} - ${ip.as_org}`;
+    document.getElementById('ip-abuse-score').innerText = `${ip.abuse_score}%`;
+    document.getElementById('ip-abuse-bar').style.width = `${ip.abuse_score}%`;
+    document.getElementById('ip-reputation').innerText = ip.reputation;
+    document.getElementById('ip-rdns').innerText = ip.reverse_dns || 'No PTR Record';
+
+    const tagsContainer = document.getElementById('ip-tags');
+    if (tagsContainer) {
+        tagsContainer.innerHTML = (ip.threat_tags || []).map(t => `<span class="bg-red-900/30 text-red-400 border border-red-800/60 px-2 py-0.5 rounded text-xs font-mono uppercase">${escapeHtml(t)}</span>`).join(' ');
+    }
+
+    const portsContainer = document.getElementById('ip-ports');
+    if (portsContainer) {
+        portsContainer.innerHTML = (ip.open_ports || []).map(p => `<span class="bg-gray-800 text-yellow-400 px-2 py-0.5 rounded text-xs font-mono font-bold">${p}</span>`).join(' ');
+    }
+}
+
+function renderDomainView(dom) {
+    document.getElementById('dom-name').innerText = dom.domain;
+    document.getElementById('dom-registrar').innerText = dom.registrar;
+    document.getElementById('dom-created').innerText = dom.created_date;
+    document.getElementById('dom-age').innerText = `${dom.age_days} days old`;
+    document.getElementById('dom-dga-score').innerText = `${dom.dga_score} / 100`;
+    document.getElementById('dom-dga-bar').style.width = `${dom.dga_score}%`;
+    document.getElementById('dom-reputation').innerText = dom.reputation;
+    document.getElementById('dom-category').innerText = dom.category;
+
+    const dnsContainer = document.getElementById('dom-dns-records');
+    if (dnsContainer) {
+        let rows = [];
+        for (let [recType, vals] of Object.entries(dom.dns_records || {})) {
+            rows.push(`<div><strong class="text-blue-400 font-mono">${recType}:</strong> <span class="text-gray-300 font-mono">${(vals || []).join(', ') || 'None'}</span></div>`);
+        }
+        dnsContainer.innerHTML = rows.join('');
+    }
+}
+
+function renderHashView(h) {
+    document.getElementById('hash-sha256-val').innerText = h.sha256;
+    document.getElementById('hash-md5-val').innerText = h.md5;
+    document.getElementById('hash-sha1-val').innerText = h.sha1;
+    document.getElementById('hash-family').innerText = h.malware_family;
+    document.getElementById('hash-detection-ratio').innerText = h.detection_ratio;
+    document.getElementById('hash-threat-name').innerText = h.popular_threat_name;
+    document.getElementById('hash-filetype').innerText = h.file_type;
+    document.getElementById('hash-firstseen').innerText = h.first_seen;
+}
+
+function runBulkIocExtract() {
+    const text = document.getElementById('bulk-ioc-input')?.value?.trim();
+    if (!text) {
+        alert("Please paste text containing IOCs to extract.");
+        return;
+    }
+
+    const extracted = ClientEngine.extractAndDefangAll(text);
+    const tbody = document.getElementById('bulk-iocs-tbody');
+    if (!tbody) return;
+
+    let rows = [];
+    extracted.cves.forEach(c => rows.push({ type: 'CVE', original: c.value, defanged: c.defanged }));
+    extracted.ips.forEach(ip => rows.push({ type: 'IP Address', original: ip.value, defanged: ip.defanged }));
+    extracted.domains.forEach(d => rows.push({ type: 'Domain', original: d.value, defanged: d.defanged }));
+    (extracted.hashes.sha256 || []).forEach(h => rows.push({ type: 'SHA-256', original: h, defanged: h }));
+    (extracted.hashes.md5 || []).forEach(h => rows.push({ type: 'MD5', original: h, defanged: h }));
+
+    document.getElementById('bulk-iocs-count').innerText = rows.length;
+
+    tbody.innerHTML = rows.map(r => `
+        <tr class="border-b border-gray-800/60 font-mono text-xs">
+            <td class="py-2 px-3 text-blue-400 font-bold">${r.type}</td>
+            <td class="py-2 px-3 text-gray-300">${escapeHtml(r.original)}</td>
+            <td class="py-2 px-3 text-yellow-300">${escapeHtml(r.defanged)}</td>
+            <td class="py-2 px-3 text-right">
+                <button onclick="copyToClipboard('${r.defanged}')" class="text-xs bg-gray-800 text-gray-300 hover:text-white px-2 py-0.5 rounded">Copy</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
 // Utilities
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {

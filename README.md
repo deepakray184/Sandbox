@@ -54,10 +54,32 @@ It combines the interactive dynamic execution visualization of **ANY.RUN**, the 
 * **Attachment Sandbox Integration**: One-click extraction of email attachments with direct routing into the malware sandbox!
 * **Safe HTML Preview**: Script-blocked, beacon-stripped preview of email body.
 
-### 4. MITRE ATT&CK Matrix Mapping
+### 4. Domain, IP, File Hash & CVE Vulnerability Intelligence
+* **CVE Deep-Dive & Exploitability**:
+  * CVSS v3.1 base score, severity rating, and vector string breakdown.
+  * EPSS (Exploit Prediction Scoring System) exploitation probability and global percentile.
+  * **CISA Known Exploited Vulnerabilities (KEV)** catalog tracking (due dates, active federal mandates).
+  * Weaponized public PoC availability and framework tracking (Metasploit, Nuclei, GitHub PoCs).
+  * Automated Snort & Suricata network IDS detection signatures.
+* **IP Address Threat Profiling**:
+  * Geolocation, country flag, ASN / ISP reputation, and autonomous system name.
+  * Tor exit node identification, public proxy / VPN flags, and open attack surface ports.
+  * Abuse Confidence Score and historical malicious activity verdicts.
+* **Domain & DGA Intelligence**:
+  * Algorithmic Shannon entropy and Domain Generation Algorithm (DGA) risk assessment.
+  * WHOIS registration timeline, age verification, and registrar data.
+  * Real-time DNS record resolution (A, MX, TXT, NS).
+* **Cryptographic Hash Attribution**:
+  * Instant MD5, SHA-1, and SHA-256 cross-referencing with threat family naming and AV consensus.
+* **Universal IOC Extractor & Bulk Defanger**:
+  * Pastes unformatted text, incident reports, or raw threat feeds.
+  * Automatically parses and categorizes all CVEs, IPs, domains, URLs, and hashes.
+  * Generates sanitized defanged text (`hxxps[://]`, `evil[.]com`, `192[.]168[.]1[.]1`) to prevent accidental clicks in ticketing systems.
+
+### 5. MITRE ATT&CK Matrix Mapping
 * Maps all observed static patterns and dynamic execution behaviors directly to the **MITRE ATT&CK Enterprise Matrix** (Initial Access, Execution, Persistence, Defense Evasion, Credential Access, Command & Control, Impact) with concrete evidence logs.
 
-### 5. Transparent Threat Scoring & SOC IOC Export
+### 6. Transparent Threat Scoring & SOC IOC Export
 * **Explainable 0-100 Threat Score**: Clear breakdown itemizing every contributing factor and point weight.
 * **Automated IOC Export Formats**:
   * **STIX 2.1 JSON Bundle** (OASIS standard)
@@ -144,6 +166,7 @@ MSA/
 │   │   ├── sandbox_engine.py       # Dynamic execution, process trees, and PCAP
 │   │   ├── virustotal_engine.py    # 65+ AV detection grid & threat intelligence
 │   │   ├── email_analyzer.py       # SPF/DKIM/DMARC, hop relays, phishing heuristics
+│   │   ├── ioc_intelligence.py     # CVE, IP, Domain, Hash & Bulk Defanger engine
 │   │   ├── mitre_mapper.py         # MITRE ATT&CK Matrix mapping
 │   │   ├── threat_scorer.py        # 0-100 severity score & transparent breakdown
 │   │   └── ioc_exporter.py         # STIX 2.1, MISP, Suricata, YARA, CSV
