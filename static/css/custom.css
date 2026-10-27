@@ -1,0 +1,124 @@
+/* Vanguard MSA - Modern Dark SOC Styling */
+:root {
+  --soc-bg: #090d16;
+  --soc-panel: #111827;
+  --soc-panel-border: #1f293d;
+  --soc-panel-hover: #172235;
+  --soc-accent: #3b82f6;
+  --soc-accent-glow: rgba(59, 130, 246, 0.25);
+  --soc-danger: #ef4444;
+  --soc-danger-glow: rgba(239, 68, 68, 0.25);
+  --soc-warning: #f59e0b;
+  --soc-success: #10b981;
+  --soc-text: #f3f4f6;
+  --soc-text-muted: #9ca3af;
+}
+
+body {
+  background-color: var(--soc-bg);
+  color: var(--soc-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1321;
+}
+::-webkit-scrollbar-thumb {
+  background: #25334d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* Radar Animation in Header */
+@keyframes radar-pulse {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 0.4; }
+  100% { transform: scale(0.9); opacity: 0.9; }
+}
+.radar-dot {
+  animation: radar-pulse 2s infinite ease-in-out;
+}
+
+/* Cyber Glass Card */
+.soc-card {
+  background: #111827;
+  border: 1px solid var(--soc-panel-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.soc-card:hover {
+  border-color: #2e3e5c;
+}
+
+/* Glowing Badges */
+.badge-malicious {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+.badge-suspicious {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+.badge-clean {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+/* Threat Score Circular Gauge */
+.threat-gauge-circle {
+  transition: stroke-dashoffset 1s ease-in-out;
+}
+
+/* Process Tree Nodes */
+.proc-tree-node {
+  background: #162032;
+  border: 1px solid #233552;
+  border-left: 4px solid var(--soc-accent);
+  transition: all 0.2s ease;
+}
+.proc-tree-node:hover {
+  background: #1c2a42;
+  border-color: #3b82f6;
+  transform: translateX(4px);
+}
+.proc-tree-node.active {
+  border-left-color: var(--soc-danger);
+  border-color: #ef4444;
+  background: #1f2233;
+}
+
+/* Hop Relay Node */
+.hop-line {
+  position: relative;
+}
+.hop-line::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 20px;
+  width: 2px;
+  height: 24px;
+  background: #25334d;
+}
+.hop-node:last-child .hop-line::after {
+  display: none;
+}
+
+/* Code and Hashes font */
+.mono-font {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
