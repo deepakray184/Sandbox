@@ -1,5 +1,14 @@
 # Vanguard MSA - SOC Malware Sandbox & Email Analysis Platform
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=github)](https://deepakray184.github.io/Sandbox/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20FastAPI%20%7C%20Client--Side-orange?style=for-the-badge)](#)
+
+> 🚀 **Live Demo on GitHub Pages**: **[https://deepakray184.github.io/Sandbox/](https://deepakray184.github.io/Sandbox/)**  
+> Run full malware sandbox traces, multi-engine AV evaluations, and email phishing analyses directly in your browser with **zero installation or backend server required**!
+
+---
+
 **Vanguard MSA** is an enterprise-grade, web-based Malware Analysis and Threat Intelligence platform designed specifically for **Security Operations Center (SOC)** teams, Incident Responders, and Malware Analysts.
 
 It combines the interactive dynamic execution visualization of **ANY.RUN**, the multi-engine antivirus detection grid of **VirusTotal**, and a dedicated **Email Header & Phishing Investigation Workbench** into a unified, high-performance console.
