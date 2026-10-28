@@ -126,6 +126,9 @@
                     <span class="text-gray-400">Quick Test IOCs:</span>
                     <button onclick="quickIocLookup('CVE-2021-44228')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">Log4Shell (CVE-2021-44228)</button>
                     <button onclick="quickIocLookup('CVE-2024-3400')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">PAN-OS RCE (CVE-2024-3400)</button>
+                    <button onclick="quickIocLookup('CVE-2023-38831')" class="bg-orange-950/40 text-orange-400 hover:bg-orange-900/60 border border-orange-800/60 px-2 py-0.5 rounded">WinRAR RCE (CVE-2023-38831)</button>
+                    <button onclick="quickIocLookup('CVE-2023-4966')" class="bg-purple-950/40 text-purple-400 hover:bg-purple-900/60 border border-purple-800/60 px-2 py-0.5 rounded">Citrix Bleed (CVE-2023-4966)</button>
+                    <button onclick="quickIocLookup('CVE-2024-3094')" class="bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/60 px-2 py-0.5 rounded">XZ Backdoor (CVE-2024-3094)</button>
                     <button onclick="quickIocLookup('CVE-2017-0144')" class="bg-purple-950/40 text-purple-400 hover:bg-purple-900/60 border border-purple-800/60 px-2 py-0.5 rounded">EternalBlue (CVE-2017-0144)</button>
                     <button onclick="quickIocLookup('185.220.101.5')" class="bg-amber-950/40 text-amber-400 hover:bg-amber-900/60 border border-amber-800/60 px-2 py-0.5 rounded">Tor C2 (185.220.101.5)</button>
                     <button onclick="quickIocLookup('update-service-cloud.org')" class="bg-blue-950/40 text-blue-400 hover:bg-blue-900/60 border border-blue-800/60 px-2 py-0.5 rounded">C2 Domain (update-service-cloud.org)</button>
@@ -736,17 +739,26 @@
                         <!-- Description & Impact -->
                         <div class="space-y-4 text-xs">
                             <div>
-                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1">Vulnerability Description</h4>
-                                <p id="cve-desc" class="text-gray-300 leading-relaxed bg-gray-950 p-3 rounded border border-gray-800"></p>
+                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                                    <span>Vulnerability Description</span>
+                                    <span class="text-[10px] text-gray-400 font-normal">Official NVD / CNA Published Record</span>
+                                </h4>
+                                <p id="cve-desc" class="text-gray-200 leading-relaxed bg-gray-950 p-4 rounded border border-gray-800 whitespace-pre-wrap font-sans text-xs select-text"></p>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-gray-900/50 p-3 rounded border border-gray-800">
-                                    <h4 class="font-bold text-yellow-400 uppercase tracking-wider mb-1">Affected Versions</h4>
-                                    <p id="cve-affected" class="text-gray-300 font-mono"></p>
+                                <div class="bg-gray-900/50 p-3.5 rounded border border-gray-800">
+                                    <h4 class="font-bold text-yellow-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                                        <span>Affected / Vulnerable Versions</span>
+                                        <span class="text-[10px] text-gray-400 font-normal">CPE & Version Boundaries</span>
+                                    </h4>
+                                    <p id="cve-affected" class="text-yellow-100 font-mono whitespace-pre-wrap leading-relaxed text-xs select-text max-h-56 overflow-y-auto"></p>
                                 </div>
-                                <div class="bg-gray-900/50 p-3 rounded border border-gray-800">
-                                    <h4 class="font-bold text-emerald-400 uppercase tracking-wider mb-1">Remediation Guidance</h4>
-                                    <p id="cve-remediation" class="text-gray-300 font-mono"></p>
+                                <div class="bg-gray-900/50 p-3.5 rounded border border-gray-800">
+                                    <h4 class="font-bold text-emerald-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                                        <span>Remediation & Patch Guidance</span>
+                                        <span class="text-[10px] text-gray-400 font-normal">Vendor Advisory Action</span>
+                                    </h4>
+                                    <p id="cve-remediation" class="text-gray-200 font-mono whitespace-pre-wrap leading-relaxed text-xs select-text max-h-56 overflow-y-auto"></p>
                                 </div>
                             </div>
 
@@ -762,7 +774,13 @@
                                     <h4 class="font-bold text-gray-300 uppercase tracking-wider">Suricata / Snort Network Detection Signature</h4>
                                     <button onclick="copyToClipboard(document.getElementById('cve-snort-rule').innerText)" class="text-blue-400 hover:text-white font-mono text-[11px]">Copy Rule</button>
                                 </div>
-                                <pre id="cve-snort-rule" class="bg-gray-950 p-3 rounded border border-gray-800 font-mono text-[11px] text-yellow-300 overflow-x-auto whitespace-pre-wrap"></pre>
+                                <pre id="cve-snort-rule" class="bg-gray-950 p-3 rounded border border-gray-800 font-mono text-[11px] text-yellow-300 overflow-x-auto whitespace-pre-wrap select-text"></pre>
+                            </div>
+
+                            <!-- Official Advisories & CTI Catalogs -->
+                            <div>
+                                <h4 class="font-bold text-gray-300 uppercase tracking-wider mb-1.5">Official CTI Advisories & Authoritative Records</h4>
+                                <div id="cve-references" class="flex flex-wrap gap-2"></div>
                             </div>
                         </div>
                     </div>

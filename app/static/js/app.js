@@ -1184,18 +1184,27 @@ async function runUniversalIocLookup(val) {
     }
 
     const iocType = ClientEngine.detectIocType(input);
-    showLoadingModal("Querying IOC Intel...", `Analyzing ${iocType.toUpperCase()}: ${input}`);
+    showLoadingModal("Querying Threat Intel...", `Analyzing ${iocType.toUpperCase()}: ${input}`);
 
-    setTimeout(() => {
+    try {
         let result;
-        if (iocType === 'cve') result = ClientEngine.analyzeCve(input);
-        else if (iocType === 'ip') result = ClientEngine.analyzeIp(input);
-        else if (iocType === 'sha256' || iocType === 'sha1' || iocType === 'md5') result = ClientEngine.analyzeHash(input);
-        else result = ClientEngine.analyzeDomain(input);
+        if (iocType === 'cve') {
+            result = await ClientEngine.analyzeCve(input);
+        } else if (iocType === 'ip') {
+            result = ClientEngine.analyzeIp(input);
+        } else if (iocType === 'sha256' || iocType === 'sha1' || iocType === 'md5') {
+            result = ClientEngine.analyzeHash(input);
+        } else {
+            result = ClientEngine.analyzeDomain(input);
+        }
 
         hideLoadingModal();
         displayIocReport(iocType, result);
-    }, 400);
+    } catch (err) {
+        console.error("IOC lookup error:", err);
+        hideLoadingModal();
+        alert("Error performing threat intelligence query. Please verify the indicator.");
+    }
 }
 
 function displayIocReport(type, data) {
@@ -1223,26 +1232,42 @@ function displayIocReport(type, data) {
 function renderCveView(cve) {
     document.getElementById('cve-title').innerText = cve.title || cve.cve_id;
     document.getElementById('cve-id-badge').innerText = cve.cve_id;
-    document.getElementById('cve-vendor').innerText = cve.vendor;
-    document.getElementById('cve-product').innerText = cve.product;
-    document.getElementById('cve-cvss-score').innerText = cve.cvss_v3_score;
-    document.getElementById('cve-cvss-vector').innerText = cve.cvss_v3_vector;
-    document.getElementById('cve-severity-badge').innerText = cve.severity;
-    document.getElementById('cve-epss-score').innerText = `${Math.round(cve.epss_score * 1000) / 10}% (${cve.epss_percentile}th percentile)`;
-    document.getElementById('cve-epss-bar').style.width = `${Math.min(100, cve.epss_score * 100)}%`;
+    document.getElementById('cve-vendor').innerText = cve.vendor || 'Unknown Vendor';
+    document.getElementById('cve-product').innerText = cve.product || 'Unknown Product';
+    document.getElementById('cve-cvss-score').innerText = cve.cvss_v3_score != null ? cve.cvss_v3_score : 'N/A';
+    document.getElementById('cve-cvss-vector').innerText = cve.cvss_v3_vector || 'N/A';
+
+    const sevBadge = document.getElementById('cve-severity-badge');
+    const sev = (cve.severity || 'UNKNOWN').toUpperCase();
+    sevBadge.innerText = sev;
+    if (sev === 'CRITICAL') {
+        sevBadge.className = "px-2.5 py-0.5 rounded bg-red-900/50 text-red-300 border border-red-700 text-xs font-bold uppercase tracking-wider";
+    } else if (sev === 'HIGH') {
+        sevBadge.className = "px-2.5 py-0.5 rounded bg-orange-900/50 text-orange-300 border border-orange-700 text-xs font-bold uppercase tracking-wider";
+    } else if (sev === 'MEDIUM') {
+        sevBadge.className = "px-2.5 py-0.5 rounded bg-yellow-900/50 text-yellow-300 border border-yellow-700 text-xs font-bold uppercase tracking-wider";
+    } else {
+        sevBadge.className = "px-2.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 text-xs font-bold uppercase tracking-wider";
+    }
+
+    const epssPct = cve.epss_score != null ? Math.round(cve.epss_score * 1000) / 10 : 0;
+    const epssRank = cve.epss_percentile != null ? `${cve.epss_percentile}th percentile` : 'N/A';
+    document.getElementById('cve-epss-score').innerText = `${epssPct}% (${epssRank})`;
+    document.getElementById('cve-epss-bar').style.width = `${Math.min(100, epssPct)}%`;
 
     const kevBadge = document.getElementById('cve-kev-badge');
     if (cve.cisa_kev) {
-        kevBadge.innerText = "ACTIVE EXPLOITATION (CISA KEV)";
-        kevBadge.className = "px-2.5 py-1 rounded bg-red-900/40 text-red-400 border border-red-700 text-xs font-bold";
+        kevBadge.innerText = cve.cisa_date_added ? `ACTIVE EXPLOITATION (CISA KEV - Added ${cve.cisa_date_added})` : "ACTIVE EXPLOITATION (CISA KEV)";
+        kevBadge.className = "px-2.5 py-1 rounded bg-red-900/40 text-red-400 border border-red-700 text-xs font-bold animate-pulse";
     } else {
         kevBadge.innerText = "No Known In-The-Wild Exploitation";
         kevBadge.className = "px-2.5 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700 text-xs font-mono";
     }
 
-    document.getElementById('cve-desc').innerText = cve.description;
-    document.getElementById('cve-affected').innerText = cve.affected_versions;
-    document.getElementById('cve-remediation').innerText = cve.remediation;
+    // Set description, affected versions, and remediation
+    document.getElementById('cve-desc').innerText = cve.description || 'Official description pending or unavailable.';
+    document.getElementById('cve-affected').innerText = cve.affected_versions || 'Version boundaries: Review vendor advisory.';
+    document.getElementById('cve-remediation').innerText = cve.remediation || 'Refer to vendor security bulletin for patch availability.';
 
     const tacticsContainer = document.getElementById('cve-mitre-tactics');
     if (tacticsContainer) {
@@ -1250,6 +1275,22 @@ function renderCveView(cve) {
     }
 
     document.getElementById('cve-snort-rule').innerText = cve.snort_rule || 'No signature defined.';
+
+    // Populate CTI references
+    const refContainer = document.getElementById('cve-references');
+    if (refContainer) {
+        const refs = cve.references || [
+            { title: "NVD Official Bulletin", url: `https://nvd.nist.gov/vuln/detail/${cve.cve_id}` },
+            { title: "CIRCL CVE Advisory", url: `https://cve.circl.lu/cve/${cve.cve_id}` },
+            { title: "CISA KEV Catalog", url: `https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=${cve.cve_id}` }
+        ];
+        refContainer.innerHTML = refs.map(r => `
+            <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded text-blue-400 hover:text-white transition font-mono text-[11px]">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                ${escapeHtml(r.title)}
+            </a>
+        `).join(' ');
+    }
 }
 
 function renderIpView(ip) {
